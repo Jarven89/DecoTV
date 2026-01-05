@@ -606,7 +606,7 @@ function DoubanPageClient() {
           requestSnapshot.secondarySelection ===
             currentSnapshot.secondarySelection;
 
-        // 5. 直接追加数据，信任 React key 处理重复
+        // 5. 直接追加数据，但去重（避免同一 ID 出现多次）
         if (isMatch && data.list.length > 0) {
           console.log(
             '✅ [fetchMoreData] Appending',
@@ -614,7 +614,21 @@ function DoubanPageClient() {
             'items to existing',
             doubanData.length,
           );
-          setDoubanData((prev) => [...prev, ...data.list]);
+
+          // 🔧 去重逻辑: 过滤掉已存在的 ID
+          setDoubanData((prev) => {
+            const existingIds = new Set(prev.map((item) => item.id));
+            const newItems = data.list.filter(
+              (item) => !existingIds.has(item.id),
+            );
+            console.log(
+              `   🔍 Filtered: ${data.list.length} -> ${newItems.length} (removed ${data.list.length - newItems.length} duplicates)`,
+            );
+            // 如果没有新数据，返回原数组避免不必要的重渲染
+            if (newItems.length === 0) return prev;
+            return [...prev, ...newItems];
+          });
+
           setHasMore(data.list.length >= 50);
           setCurrentPage((prev) => prev + 1);
         } else if (!isMatch) {
@@ -1211,20 +1225,15 @@ function DoubanPageClient() {
               hasMore={sourceHasMore}
               isLoadingMore={sourceLoadingMore}
               onLoadMore={handleSourceLoadMore}
-              renderItem={(item, priority, index) => (
-                <div
-                  key={`source-${item.id}-${index}`}
-                  className='w-full h-full'
-                >
-                  <VideoCard
-                    from='douban'
-                    title={item.title}
-                    poster={item.poster}
-                    year={item.year}
-                    type={type === 'movie' ? 'movie' : ''}
-                    priority={priority}
-                  />
-                </div>
+              renderItem={(item, priority) => (
+                <VideoCard
+                  from='douban'
+                  title={item.title}
+                  poster={item.poster}
+                  year={item.year}
+                  type={type === 'movie' ? 'movie' : ''}
+                  priority={priority}
+                />
               )}
             />
           ) : currentSource !== 'auto' && selectedSourceCategory ? (
@@ -1247,22 +1256,20 @@ function DoubanPageClient() {
               hasMore={hasMore}
               isLoadingMore={isLoadingMore}
               onLoadMore={handleLoadMore}
-              renderItem={(item, priority, index) => (
-                <div key={`${item.title}-${index}`} className='w-full h-full'>
-                  <VideoCard
-                    from='douban'
-                    title={item.title}
-                    poster={item.poster}
-                    douban_id={Number(item.id)}
-                    rate={item.rate}
-                    year={item.year}
-                    type={type === 'movie' ? 'movie' : ''}
-                    isBangumi={
-                      type === 'anime' && primarySelection === '每日放送'
-                    }
-                    priority={priority}
-                  />
-                </div>
+              renderItem={(item, priority) => (
+                <VideoCard
+                  from='douban'
+                  title={item.title}
+                  poster={item.poster}
+                  douban_id={Number(item.id)}
+                  rate={item.rate}
+                  year={item.year}
+                  type={type === 'movie' ? 'movie' : ''}
+                  isBangumi={
+                    type === 'anime' && primarySelection === '每日放送'
+                  }
+                  priority={priority}
+                />
               )}
             />
           )}
